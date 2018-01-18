@@ -523,8 +523,7 @@ Extended Payload Length: {7}
       return processHeader (stream.ReadBytes (2));
     }
 
-    private static void readHeaderAsync (
-      Stream stream, Action<WebSocketFrame> completed, Action<Exception> error)
+    private static void readHeaderAsync (      Stream stream, Action<WebSocketFrame> completed, Action<Exception> error)
     {
       stream.ReadBytesAsync (2, bytes => completed (processHeader (bytes)), error);
     }

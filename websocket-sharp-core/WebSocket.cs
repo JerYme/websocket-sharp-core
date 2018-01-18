@@ -44,14 +44,13 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Collections.Specialized;
-using System.Diagnostics;
 using System.IO;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using Helpers;
 using WebSocketSharp.Net;
 using WebSocketSharp.Net.WebSockets;
@@ -1157,7 +1156,7 @@ namespace WebSocketSharp
         private void fatal(string message, Exception exception)
         {
             var code = exception is WebSocketException
-                ? ((WebSocketException) exception).Code
+                ? ((WebSocketException)exception).Code
                 : CloseStatusCode.Abnormal;
 
             fatal(message, code);
@@ -1175,7 +1174,7 @@ namespace WebSocketSharp
             _forConn = new object();
             _forSend = new object();
             _messageEventQueue = new Queue<MessageEventArgs>();
-            _forMessageEventQueue = ((ICollection) _messageEventQueue).SyncRoot;
+            _forMessageEventQueue = ((ICollection)_messageEventQueue).SyncRoot;
             _readyState = WebSocketState.Connecting;
         }
 
@@ -1253,7 +1252,7 @@ namespace WebSocketSharp
             startReceiving();
             try
             {
-                OnOpen.Emit(this, EventArgs.Empty);
+                OnOpen?.Invoke(this, EventArgs.Empty);
             }
             catch (Exception ex)
             {
@@ -1272,8 +1271,8 @@ namespace WebSocketSharp
 
                 e = _messageEventQueue.Dequeue();
             }
-            _message.Invoke(e);
-           // _message.BeginInvoke(e, ar => _message.EndInvoke(ar), null);
+            _message(e);
+            // _message.BeginInvoke(e, ar => _message.EndInvoke(ar), null);
         }
 
         private bool processCloseFrame(WebSocketFrame frame)
@@ -1559,8 +1558,8 @@ namespace WebSocketSharp
             if (len == 0)
                 return send(Fin.Final, opcode, EmptyBytes, compressed);
 
-            var quo = len/FragmentLength;
-            var rem = (int) (len%FragmentLength);
+            var quo = len / FragmentLength;
+            var rem = (int)(len % FragmentLength);
 
             byte[] buff = null;
             if (quo == 0)
@@ -1976,11 +1975,11 @@ namespace WebSocketSharp
         {
             return !code.IsCloseStatusCode()
                 ? "An invalid close status code."
-                : code == (ushort) CloseStatusCode.NoStatus
+                : code == (ushort)CloseStatusCode.NoStatus
                     ? (!reason.IsNullOrEmpty() ? "NoStatus cannot have a reason." : null)
-                    : code == (ushort) CloseStatusCode.MandatoryExtension && !client
+                    : code == (ushort)CloseStatusCode.MandatoryExtension && !client
                         ? "MandatoryExtension cannot be used by a server."
-                        : code == (ushort) CloseStatusCode.ServerError && client
+                        : code == (ushort)CloseStatusCode.ServerError && client
                             ? "ServerError cannot be used by a client."
                             : !reason.IsNullOrEmpty() && reason.UTF8Encode().Length > 123
                                 ? "A reason has greater than the allowable max size."
@@ -2307,7 +2306,7 @@ namespace WebSocketSharp
                 return;
             }
 
-            if (code == (ushort) CloseStatusCode.NoStatus)
+            if (code == (ushort)CloseStatusCode.NoStatus)
             {
                 close(new CloseEventArgs(), true, true, false);
                 return;
@@ -2376,7 +2375,7 @@ namespace WebSocketSharp
                 return;
             }
 
-            if (code == (ushort) CloseStatusCode.NoStatus)
+            if (code == (ushort)CloseStatusCode.NoStatus)
             {
                 close(new CloseEventArgs(), true, true, false);
                 return;
@@ -2473,7 +2472,7 @@ namespace WebSocketSharp
                 return;
             }
 
-            if (code == (ushort) CloseStatusCode.NoStatus)
+            if (code == (ushort)CloseStatusCode.NoStatus)
             {
                 closeAsync(new CloseEventArgs(), true, true, false);
                 return;
@@ -2550,7 +2549,7 @@ namespace WebSocketSharp
                 return;
             }
 
-            if (code == (ushort) CloseStatusCode.NoStatus)
+            if (code == (ushort)CloseStatusCode.NoStatus)
             {
                 closeAsync(new CloseEventArgs(), true, true, false);
                 return;
@@ -2636,7 +2635,7 @@ namespace WebSocketSharp
         ///   This method isn't available in a server.
         ///   </para>
         /// </remarks>
-        public void ConnectAsync()
+        public Task ConnectAsync()
         {
             string msg;
             if (!checkIfAvailable(true, false, true, false, false, true, out msg))
@@ -2644,18 +2643,13 @@ namespace WebSocketSharp
                 _logger.Error(msg);
                 error("An error has occurred in connecting.", null);
 
-                return;
+                return Task.CompletedTask;
             }
 
-            Func<bool> connector = connect;
-            connector.BeginInvoke(
-                ar =>
-                {
-                    if (connector.EndInvoke(ar))
-                        open();
-                },
-                null
-            );
+            return Task.Run(() => connect()).ContinueWith((b) =>
+   {
+       if (b.Result) open();
+   });
         }
 
         /// <summary>
